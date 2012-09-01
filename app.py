@@ -42,10 +42,9 @@ def validate_signed_fb_request(signed_request):
         raise ValueError("'signed_request' is using an unknown algorithm")
     else:
         expected_sig = hmac.new(CONSUMER_SECRET, msg=payload, digestmod=hashlib.sha256).digest()
-    logging.debug("Signature: %s" % sig)
-    logging.debug("Expected Signature: %s" % expected_sig)
+
     if sig != expected_sig:
-        raise ValueError("'signed_request' signature mismatch")
+        raise ValueError(" 'signed_request' signature mismatch")
     else:
         return data
 
@@ -57,7 +56,7 @@ def index():
         session['oauth_token'] = (signed_data['oauth_token'], '')
         session['user'] = signed_data['user_id']
         logging.debug('Logged user: %s', signed_data)
-        #return redirect(url_for('home'))
+        return redirect(url_for('home'))
         #return redirect(url_for('facebook_authorized'))
     return redirect(url_for('login'))
 
@@ -77,8 +76,48 @@ def facebook_authorized(resp):
         )
     session['oauth_token'] = (resp['access_token'], '')
     me = facebook.get('/me')
-    return 'Logged in as id=%s name=%s redirect=%s' % \
-        (me.data['id'], me.data['name'], request.args.get('next'))
+    #return 'Logged in as id=%s name=%s redirect=%s' % \
+        #(me.data['id'], me.data['name'], request.args.get('next'))
+    return redirect(url_for('home'))
+        
+
+@app.route('/home')
+def home():
+    data = facebook.get("/me")
+    data=data.__dict__
+    a=data['data']
+    returnvalue=[]
+    returnvalue.append(str(get_details()))
+    returnvalue.append(str(get_friends('aj')))
+    returnvalue.append("<img src="+get_photo('ajaymaurya.92')+">")
+    return '<br>'.join(returnvalue)
+
+   
+def get_details(user='me'):
+    '''
+    This function is used to get details of the user .
+    '''
+    return facebook.get("/%s"%(user)).data
+
+def get_friends(user):
+    '''
+    This function is used to get friends of a given user. 
+    '''
+    query = 'SELECT name \
+            from user \
+            where uid IN \
+            (select uid2 from friend \
+            where uid1 = me()) and strpos((name),"%s")>=0\
+            LIMIT 10' % user
+            
+    friends_name = facebook.get('/fql?q=%s' % query)
+    return str(friends_name.data['data'])
+
+def get_photo(user, type='large'):
+    '''
+    This function is used to get phot of the user.
+    '''
+    return 'https://graph.facebook.com/%s/picture?type=%s' % (user, type) 
 
 @facebook.tokengetter
 def get_facebook_oauth_token():
